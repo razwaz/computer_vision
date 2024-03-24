@@ -43,3 +43,4 @@ resources/
 DUNK.code-workspace
 images/*
 .DS_Store
+.png

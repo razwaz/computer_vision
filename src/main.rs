@@ -13,10 +13,10 @@ use ndarray::{Array1, ArrayView1, ArrayView3};
 use opencv::{self as cv, prelude::*};
 fn main() -> Result<()> { 
     // Read image
-    let img = cv::imgcodecs::imread("./Data/image22.png", cv::imgcodecs::IMREAD_COLOR)?;
-    let img2 = cv::imgcodecs::imread("./Data/image11.png", cv::imgcodecs::IMREAD_COLOR)?;
+    let img = cv::imgcodecs::imread("./Data/9.png", cv::imgcodecs::IMREAD_COLOR)?;
+    let img2 = cv::imgcodecs::imread("./Data/10.png", cv::imgcodecs::IMREAD_COLOR)?;
     // Use Orb
-    let mut orbActual = <cv::features2d::ORB>::create(
+    let mut orba = <cv::features2d::ORB>::create(
         50,
         1.2,
         8,
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         4,
         4,
         opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2,
-        0,
+        10,
     )?;
 
     let mut orb_keypoints = cv::core::Vector::default();
@@ -107,20 +107,40 @@ fn main() -> Result<()> {
     
 
     let mut matches = opencv::types::VectorOfDMatch::new();
-    let mut bf_matcher = cv::features2d::BFMatcher::new(NORM_HAMMING, true)?;
+    let mut bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_L1, true)?;
+
+    let mut flann_matcher = cv::features2d::FlannBasedMatcher::new_def()?;
+
+    // The matching algorithm
 	bf_matcher.train_match_def(&orb_desc, &orb_desc2, &mut matches).unwrap();
 
     println!("Matches: {:#?}", matches);
 
-    let mut matches1to2 = opencv::core::Vector::new();
-    let mut out_img;
-    opencv::features2d::draw_matches(&img, &orb_keypoints, &img2, &orb_keypoints2, &matches1to2, &mut out_img, )
+    //let matches1to2 = opencv::core::Vector::new();
+    let mut out_img = cv::core::Mat::default();
+    let matches_mask = cv::core::Vector::new();
+
+    cv::features2d::draw_matches(
+        &img,
+        &orb_keypoints,
+        &img2,
+        &orb_keypoints2,
+        &matches,
+        &mut out_img,
+        opencv::core::VecN::all(-1.0),
+        opencv::core::VecN::all(-1.0),
+        &matches_mask,
+        cv::features2d::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS
+     )?;
    
 
 
     // Write image using OpenCV
     cv::imgcodecs::imwrite("./tmp.png", &dst_img, &cv::core::Vector::default())?;
     cv::imgcodecs::imwrite("./tmp2.png", &dst_img2, &cv::core::Vector::default())?;
+
+    cv::imgcodecs::imwrite("./tmp3.png", &out_img, &cv::core::Vector::default())?;
+
     // Convert :: cv::core::Mat -> ndarray::ArrayView3
     let a = dst_img.try_as_array()?;
     // Convert :: ndarray::ArrayView3 -> RgbImage
