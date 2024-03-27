@@ -13,7 +13,7 @@ use ndarray::{Array1, ArrayView1, ArrayView3};
 use opencv::{self as cv, prelude::*};
 fn main() -> Result<()> { 
     // Read image
-    let img = cv::imgcodecs::imread("./Data/9.png", cv::imgcodecs::IMREAD_COLOR)?;
+    let img = cv::imgcodecs::imread("./Data/20.png", cv::imgcodecs::IMREAD_COLOR)?;
     let img2 = cv::imgcodecs::imread("./Data/10.png", cv::imgcodecs::IMREAD_COLOR)?;
     // Use Orb
     let mut orba = <cv::features2d::ORB>::create(
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         4,
         4,
         opencv::features2d::KAZE_DiffusivityType::DIFF_PM_G2,
-        10,
+        -1,
     )?;
 
     let mut orb_keypoints = cv::core::Vector::default();
@@ -106,15 +106,32 @@ fn main() -> Result<()> {
 
     
 
-    let mut matches = opencv::types::VectorOfDMatch::new();
-    let mut bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_L1, true)?;
-
-    let mut flann_matcher = cv::features2d::FlannBasedMatcher::new_def()?;
+    let mut matches= opencv::types::VectorOfVectorOfDMatch::new();
+    let mut bf_matcher = cv::features2d::BFMatcher::new(cv::core::NORM_HAMMING, false)?;
 
     // The matching algorithm
-	bf_matcher.train_match_def(&orb_desc, &orb_desc2, &mut matches).unwrap();
+	//bf_matcher.train_match_def(&orb_desc, &orb_desc2, &mut matches).unwrap();
 
-    println!("Matches: {:#?}", matches);
+    bf_matcher.knn_train_match_def(&orb_desc, &orb_desc2, &mut matches, 2).unwrap();
+
+    let mut good_matches = opencv::types::VectorOfDMatch::new();
+    let mut tracker = 0i32;
+
+    for i in &matches {
+        for m in &i {
+            for n in &i {
+                tracker += 1;
+                if m.distance < 0.7 * n.distance {
+                    good_matches.push(m);
+                    break
+                }
+            }
+        }
+    }
+
+    println!("{}", tracker);
+    println!("Matches: {}", &matches.len());
+    println!("Good Matches: {}", &good_matches.len());
 
     //let matches1to2 = opencv::core::Vector::new();
     let mut out_img = cv::core::Mat::default();
@@ -125,15 +142,17 @@ fn main() -> Result<()> {
         &orb_keypoints,
         &img2,
         &orb_keypoints2,
-        &matches,
+        &good_matches,
         &mut out_img,
         opencv::core::VecN::all(-1.0),
         opencv::core::VecN::all(-1.0),
         &matches_mask,
         cv::features2d::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS
      )?;
-   
 
+    cv::calib3d::find_homography_def(src_points, dst_points);
+
+    
 
     // Write image using OpenCV
     cv::imgcodecs::imwrite("./tmp.png", &dst_img, &cv::core::Vector::default())?;
